@@ -38,7 +38,7 @@ async def get_current_teacher(current_user: models.User = Depends(get_current_us
     summary="Create a new course"
 )
 async def create_course_for_teacher(
-   course: schemas.CourseBase,
+    course: schemas.CourseBase,
     current_teacher: models.User = Depends(get_current_teacher),
     db: AsyncSession = Depends(get_db)
 ):
@@ -46,6 +46,9 @@ async def create_course_for_teacher(
     Creates a new course and assigns it to the current authenticated teacher.
     """
     try:
+        # Check if course with same unique identifier/name already exists if necessary,
+        # otherwise rely on database constraints or crud logic.
+        
         # Create the new course using the CRUD function, passing the teacher's ID
         new_course = await crud.create_course(
             db=db, 
@@ -83,7 +86,7 @@ async def get_teacher_courses(
     summary="Get all student registrations for a specific course taught by the teacher"
 )
 async def get_course_registrations_by_teacher(
-    course_id: int,  # This path parameter must be an integer
+    course_id: int, 
     current_teacher: models.User = Depends(get_current_teacher),
     db: AsyncSession = Depends(get_db)
 ):
@@ -105,51 +108,3 @@ async def get_course_registrations_by_teacher(
     # 3. Return the list of registrations
     return [schemas.CourseRegistrationOut.from_orm(reg) for reg in registrations]
     
-# ----------------------------------------------------------------------
-#                         COURSE REGISTRATION ENDPOINT
-# ----------------------------------------------------------------------
-@router.post(
-    "/register", 
-    response_model=schemas.CourseRegistrationOut, 
-    status_code=status.HTTP_201_CREATED, 
-    summary="Register current user for a course"
-)
-async def register_course(
-    registration: schemas.CourseRegistrationCreate,
-    current_user: models.User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Allows an authenticated user to register for a course.
-    This endpoint finds the course by its unique string `course_id`
-    and creates a new registration using the course's integer primary key.
-    """
-    # 1. Authorize user role
-    if current_user.role not in ["student", "user", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized to register for courses.")
-    
-    # 2. Find the course by its unique string course_id
-    course = await crud.get_course_by_course_id(db, course_id=registration.course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail=f"Course with ID {registration.course_id} not found.")
-
-    # 3. Check for existing registration to prevent duplicates
-    existing_registration = await crud.get_course_registration_by_user_and_course(
-        db, current_user.id, course.id, registration.selected_schedule
-    )
-    if existing_registration:
-        raise HTTPException(status_code=409, detail="You are already registered for this course and schedule.")
-
-    try:
-        # 4. Create the new registration record (force course.id as PK)
-        db_registration = await crud.create_course_registration(
-            db=db,
-            registration=registration,
-            user_id=current_user.id,
-            user_name=current_user.full_name,
-            user_email=current_user.email,
-            course_pk=course.id  # pass actual integer PK
-        )
-        return schemas.CourseRegistrationOut.from_orm(db_registration)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
