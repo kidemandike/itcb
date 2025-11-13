@@ -1,8 +1,8 @@
 // UserDashboard.js
 import React, { useState, useEffect } from 'react';
 import { Sidebar, Header } from './UIComponents';
-import { ConferenceRoomCard } from './ConferenceRoomComponents';
-import { BookingForm } from './ConferenceRoomForms';
+import { ConferenceRoomCard } from './BookConferenceRoom';
+import { BookingForm } from './AdminConferenceRooms';
 import api from '../api';
 
 const UserDashboard = ({ user, accessToken, onLogout }) => {

@@ -1,41 +1,189 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  TextField,
+  Typography,
+  Paper,
+  Link,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
 
-// A custom Modal component to replace browser alerts
-const Modal = ({ message, onClose }) => {
-  if (!message) return null;
-
+// MUI Modal (Dialog) to replace browser alerts
+const Modal = ({ message, onClose, severity = "info" }) => {
+  const displayMessage = typeof message === 'string' ? message : 
+                        message?.message || 
+                        message?.msg || 
+                        'An error occurred';
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full border-t-8 border-green-600">
-        <p className="text-center text-lg font-semibold text-gray-800 mb-4">{message}</p>
-        <button
-          onClick={onClose}
-          className="w-full px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors duration-200"
-        >
+    <Dialog open={!!message} onClose={onClose}>
+      <DialogTitle>Notification</DialogTitle>
+      <DialogContent>
+        <Alert severity={severity} sx={{ mb: 2 }}>
+          {displayMessage}
+        </Alert>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} variant="contained" color="primary">
           Close
-        </button>
-      </div>
-    </div>
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
-// Reusable Input Field component with green accent
-const InputField = ({ label, name, type, value, onChange, required }) => (
-  <div>
-    <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-2">
-      {label}
-    </label>
-    <input
-      id={name}
-      name={name}
-      type={type}
-      value={value}
-      onChange={onChange}
-      required={required}
-      className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
-    />
-  </div>
-);
+// Forgot Password Modal Component
+const ForgotPasswordModal = ({ open, onClose, onResetPassword }) => {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Reset error state
+    setError("");
+    
+    // Validate email
+    if (!email.trim()) {
+      setError("Email address is required");
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      await onResetPassword(email);
+      setEmail("");
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to send reset email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setEmail("");
+    setError("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Reset Password</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Enter your email address and we'll send you a link to reset your password.
+        </DialogContentText>
+        
+        {error && (
+          <Alert severity="error" sx={{ mt: 2, mb: 1 }}>
+            {error}
+          </Alert>
+        )}
+        
+        <TextField
+          autoFocus
+          margin="dense"
+          label="Email Address"
+          type="email"
+          fullWidth
+          variant="outlined"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={loading}
+          error={!!error}
+          sx={{ mt: 2 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          variant="contained" 
+          color="primary"
+          disabled={loading || !email.trim()}
+          startIcon={loading ? <CircularProgress size={20} /> : null}
+        >
+          {loading ? "Sending..." : "Send Reset Link"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// Password Reset Service (you can move this to a separate service file)
+const passwordResetService = {
+  // Simulate API call to send reset email
+  async sendResetEmail(email) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Simulate different scenarios
+        const random = Math.random();
+        
+        if (random > 0.8) {
+          // 20% chance of "network error"
+          reject(new Error("Network error. Please try again."));
+        } else if (random > 0.6) {
+          // 20% chance of "user not found"
+          reject(new Error("No account found with this email address."));
+        } else {
+          // 60% chance of success
+          resolve({ 
+            success: true, 
+            message: "Reset link sent successfully" 
+          });
+        }
+      }, 2000); // Simulate network delay
+    });
+  },
+
+  // Validate reset token (for when user clicks the link)
+  async validateResetToken(token) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (token && token.length > 10) {
+          resolve({ valid: true });
+        } else {
+          reject(new Error("Invalid or expired reset token"));
+        }
+      }, 1000);
+    });
+  },
+
+  // Reset password with token
+  async resetPassword(token, newPassword) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (token && newPassword && newPassword.length >= 6) {
+          resolve({ success: true, message: "Password reset successfully" });
+        } else {
+          reject(new Error("Invalid token or password too short"));
+        }
+      }, 1500);
+    });
+  }
+};
 
 // Login and Registration Form component
 const LoginAndRegisterForm = ({
@@ -45,30 +193,36 @@ const LoginAndRegisterForm = ({
   handleRegister,
 }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
   });
 
-  const [modalMessage, setModalMessage] = useState('');
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalSeverity, setModalSeverity] = useState("info");
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const showModal = (message, severity = "info") => {
+    setModalMessage(message);
+    setModalSeverity(severity);
+  };
+
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    // Use the handleLogin function passed from the parent component
     handleLogin(formData.email, formData.password);
   };
 
   const handleRegisterSubmit = (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      setModalMessage('Passwords do not match.');
+      showModal("Passwords do not match.", "error");
       return;
     }
     const userToRegister = {
@@ -77,65 +231,209 @@ const LoginAndRegisterForm = ({
     };
     delete userToRegister.confirmPassword;
     handleRegister(userToRegister);
-    setModalMessage("Registration successful! Please log in.");
+    showModal("Registration successful! Please log in.", "success");
     setIsRegistering(false);
   };
 
+  // Enhanced password reset handler
+  const handleResetPassword = async (email) => {
+    try {
+      const result = await passwordResetService.sendResetEmail(email);
+      showModal(
+        `Password reset link has been sent to ${email}. Please check your inbox and spam folder.`,
+        "success"
+      );
+      
+      // Optional: Log for debugging
+      console.log("Password reset successful:", result);
+      
+    } catch (error) {
+      showModal(error.message, "error");
+      console.error("Password reset failed:", error);
+    }
+  };
+
+  const handleForgotPasswordClick = (e) => {
+    e.preventDefault();
+    setForgotPasswordOpen(true);
+  };
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-200 via-white to-[#003366] p-4">
-      <Modal message={modalMessage} onClose={() => setModalMessage('')} />
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-2xl border-t-8 border-[#003366] transition-all duration-300">
-        <h2 className="text-3xl font-extrabold text-center text-[#003366] mb-6">
-          {isRegistering ? 'Create Your Account' : 'Welcome Back'}
-        </h2>
+    <Box
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      minHeight="100vh"
+      sx={{
+        backgroundImage: `url('/admin-logo.png')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <Modal 
+        message={modalMessage} 
+        onClose={() => setModalMessage("")} 
+        severity={modalSeverity}
+      />
+      
+      <ForgotPasswordModal
+        open={forgotPasswordOpen}
+        onClose={() => setForgotPasswordOpen(false)}
+        onResetPassword={handleResetPassword}
+      />
+
+      <Paper
+        elevation={6}
+        sx={{
+          p: 4,
+          maxWidth: 400,
+          width: "100%",
+          borderTop: "6px solid #003366",
+          borderRadius: 3,
+          backdropFilter: "blur(4px)",
+          bgcolor: "rgba(255,255,255,0.95)",
+        }}
+      >
+        <Typography
+          variant="h5"
+          align="center"
+          fontWeight="bold"
+          color="#003366"
+          gutterBottom
+        >
+          {isRegistering ? "Create Your Account" : "Welcome Back"}
+        </Typography>
 
         {isRegistering ? (
-          <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <InputField label="First Name" name="firstName" type="text" value={formData.firstName} onChange={handleChange} required />
-            <InputField label="Last Name" name="lastName" type="text" value={formData.lastName} onChange={handleChange} required />
-            <InputField label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
-            <InputField label="Phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
-            <InputField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} required />
-            <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required />
-            <button
+          <Box component="form" onSubmit={handleRegisterSubmit} noValidate>
+            <TextField
+              fullWidth
+              margin="normal"
+              label="First Name"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleChange}
+              required
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Last Name"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleChange}
+              required
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Phone"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleChange}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Confirm Password"
+              name="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+            />
+            <Button
               type="submit"
-              className="w-full bg-[#003366] text-white py-2 px-4 rounded-lg font-semibold hover:bg-[#002244] transition-colors duration-300 shadow-md"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 2, bgcolor: "#003366", "&:hover": { bgcolor: "#002244" } }}
             >
               Register
-            </button>
-          </form>
+            </Button>
+          </Box>
         ) : (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <InputField label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
-            <InputField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} required />
-            <div className="text-right">
-              <button
+          <Box component="form" onSubmit={handleLoginSubmit} noValidate>
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+            <Box textAlign="right" mt={1}>
+              <Link
+                component="button"
+                variant="body2"
+                color="primary"
+                onClick={handleForgotPasswordClick}
                 type="button"
-                onClick={() => setModalMessage('Redirect to forgot password page')}
-                className="text-sm text-[#003366] hover:underline"
               >
                 Forgot Password?
-              </button>
-            </div>
-            <button
+              </Link>
+            </Box>
+            <Button
               type="submit"
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-300 shadow-md"
+              fullWidth
+              variant="contained"
+              color="success"
+              sx={{ mt: 2 }}
             >
               Login
-            </button>
-          </form>
+            </Button>
+          </Box>
         )}
 
-        <div className="text-center mt-6">
-          <button
+        <Box textAlign="center" mt={3}>
+          <Link
+            component="button"
+            variant="body2"
             onClick={() => setIsRegistering(!isRegistering)}
-            className="text-sm text-[#003366] hover:underline font-medium"
+            sx={{ fontWeight: "medium", color: "#003366" }}
+            type="button"
           >
-            {isRegistering ? 'Already have an account? Login' : 'Need an account? Register'}
-          </button>
-        </div>
-      </div>
-    </div>
+            {isRegistering
+              ? "Already have an account? Login"
+              : "Need an account? Register"}
+          </Link>
+        </Box>
+      </Paper>
+    </Box>
   );
 };
 

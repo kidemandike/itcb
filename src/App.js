@@ -1,9 +1,56 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { 
+  ThemeProvider, 
+  createTheme, 
+  CssBaseline, 
+  CircularProgress,
+  Box,
+  Container,
+  Alert,
+  Snackbar,
+  Button 
+} from "@mui/material";
 import LoginAndRegisterForm from "./components/LoginAndRegisterForm";
 import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
-import AdminDashboard from "./components/AdminDashboard";
-import api from "./api"; // Your backend API helper
+import AdminDashboard from "./components/AdminDashboard/AdminDashboard";
+import EngineeringDashboard from "./components/Driving/EngineeringDashboard";
+import ICEDashboard from "./components/departments/ICEDashboard";
+import LanguageStudiesDashboard from "./components/LanguageStudies/LanguageStudiesDashboard";
+import api from "./api";
+
+// Create Material-UI theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+    background: {
+      default: '#f5f5f5',
+    },
+  },
+  typography: {
+    h4: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 500,
+    },
+  },
+});
+
+// User roles configuration
+const USER_ROLES = {
+  ADMIN: 'admin',
+  TEACHER: 'teacher',
+  STUDENT: 'student',
+  ENGINEERING_STAFF: 'engineering_staff',
+  ICE_STAFF: 'ice_staff',
+  LANGUAGE_STAFF: 'language_staff'
+};
 
 const App = () => {
     const [currentUser, setCurrentUser] = useState(null);
@@ -12,14 +59,25 @@ const App = () => {
     const [loadingAuth, setLoadingAuth] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
     // Data states
     const [users, setUsers] = useState([]);
     const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
-    const [controlNumbers, setControlNumbers] = useState({});
-    const [payments, setPayments] = useState({});
-    const [approvals, setApprovals] = useState({});
+    const [conferenceRooms, setConferenceRooms] = useState([]);
+    const [roomBookings, setRoomBookings] = useState([]);
+    const [activeTab, setActiveTab] = useState('dashboard');
+
+    // Show snackbar notification
+    const showSnackbar = (message, severity = 'info') => {
+        setSnackbar({ open: true, message, severity });
+    };
+
+    // Close snackbar
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
 
     // --- Initial Authentication Check on App Load ---
     useEffect(() => {
@@ -40,7 +98,6 @@ const App = () => {
             }
             setLoadingAuth(false);
         };
-
         checkAuthStatus();
     }, []);
 
@@ -48,124 +105,125 @@ const App = () => {
     const handleLogin = async (email, password) => {
         try {
             const response = await api.login(email, password);
-
             if (response && response.access_token && response.user) {
                 localStorage.setItem('accessToken', response.access_token);
                 localStorage.setItem('user', JSON.stringify(response.user));
-
                 setToken(response.access_token);
                 setCurrentUser(response.user);
-                setIsDataLoaded(false); // Reset the flag on successful login to force data reload
-                alert(response.message || "Login successful!");
+                setIsDataLoaded(false);
+                showSnackbar(response.message || "Login successful!", "success");
             } else {
-                alert(response.message || "Login failed. Please check your credentials.");
+                showSnackbar(response.detail || "Login failed. Please check your credentials.", "error");
             }
         } catch (error) {
             console.error("Login error:", error);
-            alert("Login failed due to a network or server issue.");
+            showSnackbar("Login failed due to a network or server issue.", "error");
         }
     };
 
     const handleRegister = async (userData) => {
         try {
             const response = await api.register(userData);
-
             if (response.success) {
-                alert("Registration successful! Please log in.");
+                showSnackbar("Registration successful! Please log in.", "success");
                 setIsRegistering(false);
             } else {
-                alert(response.message || "Registration failed.");
+                showSnackbar(response.message || "Registration failed.", "error");
             }
         } catch (error) {
             console.error("Registration error:", error);
-            alert("Registration failed due to a network or server issue.");
+            showSnackbar("Registration failed due to a network or server issue.", "error");
         }
     };
 
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
-
         setCurrentUser(null);
         setToken(null);
         setUsers([]);
         setCourses([]);
         setEnrollments([]);
-        setControlNumbers({});
-        setPayments({});
-        setApprovals({});
-        setIsDataLoaded(false); // Reset the flag on logout
-        alert("You have been logged out.");
+        setConferenceRooms([]);
+        setRoomBookings([]);
+        setIsDataLoaded(false);
+        showSnackbar("You have been logged out.", "info");
     };
-
-    const handleRegisterCourse = async (courseId, selectedSchedule, selectedLevel) => {
-        if (!token || !currentUser || currentUser.role !== "student") {
-            alert("You must be logged in as a student to register for a course.");
-            return;
-        }
-
-        setLoadingData(true);
-        try {
-            const registrationData = {
-                course_id: courseId,
-                selected_schedule: selectedSchedule,
-                selected_level: selectedLevel,
-            };
-            const newRegistration = await api.registerForCourse(token, registrationData);
-            if (newRegistration && newRegistration.id) {
-                alert(`Successfully registered for course: ${newRegistration.course_name}!`);
-                // Refetch enrollments to update the dashboard immediately
-                const myRegistrations = await api.getMyRegistrations(token, currentUser.id);
-                setEnrollments(Array.isArray(myRegistrations) ? myRegistrations : []);
-            } else {
-                alert(newRegistration.detail || "Registration failed. Please try again.");
-            }
-        } catch (error) {
-            console.error("Registration error:", error);
-            alert(`Registration failed. Error: ${error.message}`);
-        } finally {
-            setLoadingData(false);
-        }
-    };
-
 
     // --- Centralized Data Loader ---
     useEffect(() => {
         const fetchDataForUser = async () => {
-            // Only fetch if a user is logged in AND data has not been loaded yet
             if (!currentUser || !token || isDataLoaded) return;
-
             setLoadingData(true);
             try {
                 switch (currentUser.role) {
-                    case "student":
-                        const allCourses = await api.getAllCourses(token);
-                        const myRegistrations = await api.getMyRegistrations(token, currentUser.id);
-
+                    case USER_ROLES.STUDENT:
+                        const [allCourses, myRegistrations, allRooms, myBookings] = await Promise.all([
+                            api.getAllCourses(token),
+                            api.getMyRegistrations(token, currentUser.id),
+                            api.getConferenceRooms(token),
+                            api.getMyRoomBookings(token)
+                        ]);
+                        
                         setCourses(Array.isArray(allCourses) ? allCourses : []);
                         setEnrollments(Array.isArray(myRegistrations) ? myRegistrations : []);
+                        setConferenceRooms(Array.isArray(allRooms) ? allRooms : []);
+                        setRoomBookings(Array.isArray(myBookings) ? myBookings : []);
                         break;
-
-                    case "teacher":
+                    
+                    case USER_ROLES.TEACHER:
                         const teacherCourses = await api.getTeacherCourses(token);
                         setCourses(Array.isArray(teacherCourses) ? teacherCourses : []);
                         break;
-
-                    case "admin":
-                        const allUsers = await api.getAdminAllUsers(token);
-                        const allRegistrations = await api.getAdminAllRegistrations(token);
+                    
+                    case USER_ROLES.ADMIN:
+                        const [allUsers, allRegistrations, allRoomBookings] = await Promise.all([
+                            api.getAdminAllUsers(token),
+                            api.getAdminAllRegistrations(token),
+                            api.getAdminAllBookings(token)
+                        ]);
+                        
                         setUsers(Array.isArray(allUsers) ? allUsers : []);
                         setEnrollments(Array.isArray(allRegistrations) ? allRegistrations : []);
+                        setRoomBookings(Array.isArray(allRoomBookings) ? allRoomBookings : []);
                         break;
-
+                    
+                   case USER_ROLES.ENGINEERING_STAFF:
+    
+    const engineeringCourses = await api.getCoursesByDepartment(token, 'engineering');
+    setCourses(Array.isArray(engineeringCourses) ? engineeringCourses : []);
+    setEnrollments([]);
+    break;
+                    
+                    case USER_ROLES.ICE_STAFF:
+                        // ICE staff sees short courses and related data
+                        const [iceCourses, iceRegistrations] = await Promise.all([
+                            api.getCoursesByDepartment(token, 'ice'),
+                            api.getRegistrationsByDepartment(token, 'ice')
+                        ]);
+                        setCourses(Array.isArray(iceCourses) ? iceCourses : []);
+                        setEnrollments(Array.isArray(iceRegistrations) ? iceRegistrations : []);
+                        break;
+                    
+                    case USER_ROLES.LANGUAGE_STAFF:
+                        // Language staff sees certificate applications and language courses
+                        const [languageCourses, certificateApplications] = await Promise.all([
+                            api.getCoursesByDepartment(token, 'language'),
+                            api.getCertificateApplications(token)
+                        ]);
+                        setCourses(Array.isArray(languageCourses) ? languageCourses : []);
+                        // Store certificate applications in enrollments for now
+                        setEnrollments(Array.isArray(certificateApplications) ? certificateApplications : []);
+                        break;
+                    
                     default:
                         console.error("Unrecognized user role:", currentUser.role);
                         break;
                 }
-                setIsDataLoaded(true); // Set the flag to true after successful fetch
+                setIsDataLoaded(true);
             } catch (error) {
                 console.error("Failed to load user-specific data:", error);
-                alert("Failed to load dashboard data. Your session may have expired.");
+                showSnackbar("Failed to load dashboard data. Your session may have expired.", "error");
                 handleLogout();
             } finally {
                 setLoadingData(false);
@@ -177,16 +235,62 @@ const App = () => {
         }
     }, [currentUser, token, isDataLoaded]);
 
+    const handleRegisterCourse = async (courseId, selectedSchedule, selectedLevel) => {
+        if (!token || !currentUser || currentUser.role !== USER_ROLES.STUDENT) {
+            showSnackbar("You must be logged in as a student to register for a course.", "error");
+            return;
+        }
+        setLoadingData(true);
+        try {
+            const registrationData = {
+                course_id: courseId,
+                selected_schedule: selectedSchedule,
+                selected_level: selectedLevel,
+            };
+            const newRegistration = await api.registerForCourse(token, registrationData);
+            if (newRegistration && newRegistration.id) {
+                showSnackbar(`Successfully registered for course: ${newRegistration.course_name}!`, "success");
+                const myRegistrations = await api.getMyRegistrations(token, currentUser.id);
+                setEnrollments(Array.isArray(myRegistrations) ? myRegistrations : []);
+            } else {
+                showSnackbar(newRegistration.detail || "Registration failed. Please try again.", "error");
+            }
+        } catch (error) {
+            console.error("Registration error:", error);
+            showSnackbar(`Registration failed. Error: ${error.message}`, "error");
+        } finally {
+            setLoadingData(false);
+        }
+    };
+
+    // Get dashboard title based on user role
+    const getDashboardTitle = () => {
+        const roleTitles = {
+            [USER_ROLES.ADMIN]: "Admin Dashboard",
+            [USER_ROLES.TEACHER]: "Teacher Dashboard",
+            [USER_ROLES.STUDENT]: "Student Dashboard",
+            [USER_ROLES.ENGINEERING_STAFF]: "Engineering Department - Driving Courses",
+            [USER_ROLES.ICE_STAFF]: "ICE Department - Short Courses",
+            [USER_ROLES.LANGUAGE_STAFF]: "Language Studies - English Certificates"
+        };
+        return roleTitles[currentUser?.role] || "Dashboard";
+    };
+
     // --- RENDER DASHBOARD BASED ON ROLE ---
     const renderDashboard = () => {
         if (loadingAuth || loadingData) {
             return (
-                <div className="flex items-center justify-center min-h-screen bg-gray-100">
-                    <p className="text-xl text-indigo-700">Loading application...</p>
-                </div>
+                <Box 
+                    display="flex" 
+                    justifyContent="center" 
+                    alignItems="center" 
+                    minHeight="100vh"
+                >
+                    <CircularProgress size={60} />
+                </Box>
             );
         }
-
+        
         if (!currentUser) {
             return (
                 <LoginAndRegisterForm
@@ -198,57 +302,125 @@ const App = () => {
             );
         }
 
+        const commonProps = {
+            user: currentUser,
+            accessToken: token,
+            onLogout: handleLogout,
+            activeTab,
+            setActiveTab,
+            showSnackbar,
+            dashboardTitle: getDashboardTitle(),
+            userRole: currentUser.role
+        };
+
         switch (currentUser.role) {
-            case "student":
+            case USER_ROLES.STUDENT:
                 return (
                     <StudentDashboard
-                        user={currentUser}
-                        accessToken={token}
-                        onLogout={handleLogout}
+                        {...commonProps}
                         courses={courses}
                         enrollments={enrollments}
                         onRegisterCourse={handleRegisterCourse}
+                        conferenceRooms={conferenceRooms}
+                        roomBookings={roomBookings}
                     />
                 );
 
-            case "teacher":
+            case USER_ROLES.TEACHER:
                 return (
                     <TeacherDashboard
-                        user={currentUser}
-                        accessToken={token}
-                        onLogout={handleLogout}
+                        {...commonProps}
                         courses={courses}
                         enrollments={enrollments}
                         users={users}
                     />
                 );
 
-            case "admin":
+            case USER_ROLES.ADMIN:
                 return (
                     <AdminDashboard
-                        user={currentUser}
-                        accessToken={token}
-                        onLogout={handleLogout}
+                        {...commonProps}
                         users={users}
                         enrollments={enrollments}
                         courses={courses}
+                        roomBookings={roomBookings}
+                    />
+                );
+
+            case USER_ROLES.ENGINEERING_STAFF:
+                return (
+                    <EngineeringDashboard
+                        {...commonProps}
+                        courses={courses}
+                        enrollments={enrollments}
+                        conferenceRooms={conferenceRooms}
+                        roomBookings={roomBookings}
+                    />
+                );
+
+            case USER_ROLES.ICE_STAFF:
+                return (
+                    <ICEDashboard
+                        {...commonProps}
+                        courses={courses}
+                        enrollments={enrollments}
+                        conferenceRooms={conferenceRooms}
+                        roomBookings={roomBookings}
+                    />
+                );
+
+            case USER_ROLES.LANGUAGE_STAFF:
+                return (
+                    <LanguageStudiesDashboard
+                        {...commonProps}
+                        courses={courses}
+                        enrollments={enrollments} // This contains certificate applications for language staff
+                        conferenceRooms={conferenceRooms}
+                        roomBookings={roomBookings}
                     />
                 );
 
             default:
                 return (
-                    <div className="flex items-center justify-center h-screen">
-                        <h1>Error: User role not recognized.</h1>
-                        <button onClick={handleLogout}>Logout</button>
-                    </div>
+                    <Container maxWidth="md">
+                        <Box textAlign="center" mt={4}>
+                            <Alert severity="error">Error: User role "{currentUser.role}" not recognized.</Alert>
+                            <Button 
+                                variant="contained" 
+                                onClick={handleLogout}
+                                sx={{ mt: 2 }}
+                            >
+                                Logout
+                            </Button>
+                        </Box>
+                    </Container>
                 );
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
-            {renderDashboard()}
-        </div>
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <Box className="min-h-screen bg-gray-100 font-sans text-gray-800">
+                {renderDashboard()}
+                
+                {/* Snackbar for notifications */}
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={6000}
+                    onClose={handleCloseSnackbar}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert 
+                        onClose={handleCloseSnackbar} 
+                        severity={snackbar.severity}
+                        sx={{ width: '100%' }}
+                    >
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
+            </Box>
+        </ThemeProvider>
     );
 };
 

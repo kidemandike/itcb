@@ -1,60 +1,109 @@
 import React, { useState, useEffect } from 'react';
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardActions,
+    Typography,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Select,
+    MenuItem,
+    InputLabel,
+    FormControl,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+    Chip,
+    CircularProgress,
+    Tabs,
+    Tab,
+    Grid,
+    Alert,
+} from '@mui/material';
+
+// Assuming these imports are correctly set up in your project
 import { Sidebar, Header } from './UIComponents';
-import api from '../api';
+import api from '../api'; 
+import BookConferenceRoom from './BookConferenceRoom'; 
+import CertificateRequestForm from './LanguageStudies/CertificateRequestForm'; 
+import StudentCertificateProgress from './LanguageStudies/StudentCertificateProgress';
+import { DrivingApplicationForm } from './Driving/DrivingApplicationForm'; // Import the driving application form
 
-// Course Card Component with teacher name
-const CourseCard = ({ course, onAction, actionText }) => {
-    return (
-        <div className="bg-white rounded-xl shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 ease-in-out">
-            <div className="p-6">
-                <h3 className="text-xl font-bold text-indigo-700 mb-2">{course.course_name}</h3>
-                <p className="text-sm text-gray-500 mb-4">Instructor: {course.instructor_name || 'TBA'}</p>
-                <p className="text-gray-600 mb-2">Duration: {course.course_duration}</p>
-                <p className="text-gray-800 font-bold mb-4">Price: Tsh{course.course_price}</p>
-                <button
-                    onClick={onAction}
-                    className="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                >
-                    {actionText}
-                </button>
-            </div>
-        </div>
-    );
-};
+// --- Shared Components (Kept for completeness) ---
 
-// Course Registration Modal Component
+const CourseCard = ({ course, onAction, actionText, courseType = "regular" }) => (
+    <Card sx={{ 
+        boxShadow: 3, 
+        borderRadius: 2, 
+        '&:hover': { transform: 'scale(1.02)', transition: '0.3s' },
+        border: courseType === "driving" ? '2px solid #8B0000' : 'none'
+    }}>
+        <CardContent>
+            <Typography variant="h6" color={courseType === "driving" ? "error" : "primary"} gutterBottom>
+                {course.course_name}
+                {courseType === "driving" && (
+                    <Chip label="Driving" color="error" size="small" sx={{ ml: 1 }} />
+                )}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+                Instructor: {course.instructor_name || 'TBA'}
+            </Typography>
+            <Typography variant="body2">Duration: {course.course_duration}</Typography>
+            <Typography variant="subtitle1" fontWeight="bold">
+                Price: Tsh{course.course_price}
+            </Typography>
+            {courseType === "driving" && course.course_type && (
+                <Typography variant="body2" color="textSecondary">
+                    Type: {course.course_type}
+                </Typography>
+            )}
+        </CardContent>
+        <CardActions>
+            <Button 
+                fullWidth 
+                variant="contained" 
+                color={courseType === "driving" ? "error" : "primary"} 
+                onClick={onAction}
+            >
+                {actionText}
+            </Button>
+        </CardActions>
+    </Card>
+);
+
+// Course Registration Modal
 const CourseRegistrationModal = ({ course, user, onClose, onRegister, isLoading }) => {
-    const [formData, setFormData] = useState({
-        selected_schedule: '',
-        selected_level: 'Beginner',
-    });
+    const [formData, setFormData] = useState({ selected_schedule: '', selected_level: 'Beginner' });
 
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!formData.selected_schedule.trim()) {
-            alert('Please select a schedule');
+        if (!formData.selected_schedule.trim() || !formData.selected_level.trim()) {
+            alert('Please select schedule and level');
             return;
         }
-        if (!formData.selected_level.trim()) {
-            alert('Please select a level');
-            return;
-        }
-
-        const registrationData = {
-            course_id: course.course_id, // Use course_id (string) not id (integer)
+        
+        onRegister({
+            course_id: course.id.toString(), 
+            course_name: course.course_name,
+            course_price: course.course_price.toString(), 
+            course_duration: course.course_duration,
+            instructor_name: course.instructor_name,
             selected_schedule: formData.selected_schedule,
             selected_level: formData.selected_level,
-        };
-
-        onRegister(registrationData);
+        });
     };
 
     const scheduleOptions = [
@@ -63,338 +112,633 @@ const CourseRegistrationModal = ({ course, user, onClose, onRegister, isLoading 
         'Saturday 10 AM - 12 PM',
         'Sunday 2-4 PM',
         'Monday to Friday 5-6 PM',
-        'Weekend Intensive'
+        'Weekend Intensive',
     ];
 
     const levelOptions = ['Beginner', 'Intermediate', 'Advanced'];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-90vh overflow-y-auto">
-                <div className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-bold text-indigo-700">Register for Course</h2>
-                        <button
-                            onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-2xl"
+        <Dialog open={!!course} onClose={onClose} maxWidth="sm" fullWidth>
+            <DialogTitle>Register for Course</DialogTitle>
+            <DialogContent dividers>
+                <Typography variant="h6">{course.course_name}</Typography>
+                <Typography variant="body2" color="textSecondary">
+                    Instructor: {course.instructor_name || 'TBA'}
+                </Typography>
+                <Typography variant="body2">Duration: {course.course_duration}</Typography>
+                <Typography variant="body2" gutterBottom>
+                    Price: Tsh{course.course_price}
+                </Typography>
+
+                <Box component="form" onSubmit={handleSubmit} mt={2}>
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel>Preferred Schedule</InputLabel>
+                        <Select
+                            name="selected_schedule"
+                            value={formData.selected_schedule}
+                            onChange={handleInputChange}
+                            required
                             disabled={isLoading}
                         >
-                            ×
-                        </button>
-                    </div>
+                            {scheduleOptions.map((schedule) => (
+                                <MenuItem key={schedule} value={schedule}>
+                                    {schedule}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
-                    {/* Course Details */}
-                    <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h3 className="font-semibold text-lg text-gray-800 mb-2">{course.course_name}</h3>
-                        <div className="text-sm text-gray-600 space-y-1">
-                            <p><strong>Instructor:</strong> {course.instructor_name || 'TBA'}</p>
-                            <p><strong>Duration:</strong> {course.course_duration}</p>
-                            <p><strong>Price:</strong> Tsh{course.course_price}</p>
-                        </div>
-                    </div>
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel>Your Level</InputLabel>
+                        <Select
+                            name="selected_level"
+                            value={formData.selected_level}
+                            onChange={handleInputChange}
+                            required
+                            disabled={isLoading}
+                        >
+                            {levelOptions.map((level) => (
+                                <MenuItem key={level} value={level}>
+                                    {level}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Schedule Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Preferred Schedule *
-                            </label>
-                            <select
-                                name="selected_schedule"
-                                value={formData.selected_schedule}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                                disabled={isLoading}
-                            >
-                                <option value="">Select a schedule</option>
-                                {scheduleOptions.map(schedule => (
-                                    <option key={schedule} value={schedule}>{schedule}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Level Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Your Level *
-                            </label>
-                            <select
-                                name="selected_level"
-                                value={formData.selected_level}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                required
-                                disabled={isLoading}
-                            >
-                                {levelOptions.map(level => (
-                                    <option key={level} value={level}>{level}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Student Info Display */}
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                            <h4 className="font-medium text-gray-700 mb-2">Your Information</h4>
-                            <p className="text-sm text-gray-600">
-                                <strong>Name:</strong> {user.full_name}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                                <strong>Email:</strong> {user.email}
-                            </p>
-                        </div>
-
-                        {/* Form Actions */}
-                        <div className="flex gap-4 pt-6">
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-white transition-colors ${
-                                    isLoading
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500'
-                                }`}
-                            >
-                                {isLoading ? 'Registering...' : 'Register Now'}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={isLoading}
-                                className="flex-1 py-3 px-4 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+                    <Box mt={2} p={2} bgcolor="grey.100" borderRadius={2}>
+                        <Typography variant="subtitle2">Your Information</Typography>
+                        <Typography variant="body2">Name: {user.full_name}</Typography>
+                        <Typography variant="body2">Email: {user.email}</Typography>
+                    </Box>
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="inherit" disabled={isLoading}>
+                    Cancel
+                </Button>
+                <Button
+                    onClick={handleSubmit}
+                    variant="contained"
+                    color="primary"
+                    disabled={isLoading}
+                >
+                    {isLoading ? <CircularProgress size={24} /> : 'Register Now'}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
 
-// Student Dashboard Component
+// Certificate Type Selection Component
+const CertificateTypeSelector = ({ onCertificateTypeChange }) => {
+    const [certificateType, setCertificateType] = useState('');
+
+    const handleChange = (event) => {
+        const type = event.target.value;
+        setCertificateType(type);
+        onCertificateTypeChange(type);
+    };
+
+    return (
+        <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Select Certificate Type</InputLabel>
+            <Select
+                value={certificateType}
+                onChange={handleChange}
+                label="Select Certificate Type"
+            >
+                <MenuItem value="">
+                    <em>Select certificate type</em>
+                </MenuItem>
+                <MenuItem value="language">English Language Proficiency Certificate</MenuItem>
+                <MenuItem value="driving">Driving Course Completion Certificate</MenuItem>
+            </Select>
+        </FormControl>
+    );
+};
+
+// --- Main Student Dashboard Component ---
 const StudentDashboard = ({ user, accessToken, onLogout }) => {
     const [activeTab, setActiveTab] = useState('allCourses');
     const [courses, setCourses] = useState([]);
+    const [drivingCourses, setDrivingCourses] = useState([]);
     const [myRegistrations, setMyRegistrations] = useState([]);
+    const [myDrivingApplications, setMyDrivingApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingDrivingCourses, setLoadingDrivingCourses] = useState(false);
     const [loadingRegistrations, setLoadingRegistrations] = useState(false);
-    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
     const [selectedCourseForRegistration, setSelectedCourseForRegistration] = useState(null);
     const [isRegistering, setIsRegistering] = useState(false);
+    const [isSubmittingCert, setIsSubmittingCert] = useState(false);
+    const [certificateType, setCertificateType] = useState('');
+    const [courseTab, setCourseTab] = useState(0); // 0 for regular, 1 for driving
 
-    // Fetch all courses
     const fetchCourses = async () => {
         setLoading(true);
         try {
-            const coursesResult = await api.getAllCourses(accessToken);
-            setCourses(Array.isArray(coursesResult) ? coursesResult : []);
-        } catch (error) {
-            console.error("Failed to fetch courses:", error);
-            alert("Failed to load courses.");
+            const result = await api.getAllCourses(accessToken);
+            setCourses(Array.isArray(result) ? result : []);
+        } catch (err) {
+            console.error(err);
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchDrivingCourses = async () => {
+        setLoadingDrivingCourses(true);
+        try {
+            const result = await api.getAvailableDrivingCourses(accessToken);
+            setDrivingCourses(Array.isArray(result) ? result : []);
+        } catch (err) {
+            console.error("Error fetching driving courses:", err);
+        } finally {
+            setLoadingDrivingCourses(false);
+        }
+    };
+
     const fetchMyRegistrations = async () => {
-        if (!user || !user.id) return;
+        if (!user?.id) return;
         setLoadingRegistrations(true);
         try {
-            const registrationsResult = await api.getMyRegistrations(accessToken, user.id);
-            setMyRegistrations(Array.isArray(registrationsResult) ? registrationsResult : []);
-        } catch (error) {
-            console.error("Failed to fetch my registrations:", error);
-            alert("Failed to load your registrations.");
+            const result = await api.getMyRegistrations(accessToken, user.id);
+            setMyRegistrations(Array.isArray(result) ? result : []);
+        } catch (err) {
+            console.error(err);
         } finally {
             setLoadingRegistrations(false);
         }
     };
 
-    useEffect(() => {
-        fetchCourses();
-    }, [accessToken]);
-
-    useEffect(() => {
-        if (user && user.id && activeTab === 'myRegistrations') {
-            fetchMyRegistrations();
+    const fetchMyDrivingApplications = async () => {
+        try {
+            const result = await api.getMyDrivingApplications(accessToken);
+            setMyDrivingApplications(Array.isArray(result) ? result : []);
+        } catch (err) {
+            console.error("Error fetching driving applications:", err);
         }
-    }, [user, accessToken, activeTab]);
-
-    const handleRegisterClick = (course) => {
-        setSelectedCourseForRegistration(course);
-        setShowRegistrationModal(true);
     };
 
-    const handleCloseRegistrationModal = () => {
-        setShowRegistrationModal(false);
-        setSelectedCourseForRegistration(null);
-    };
+    useEffect(() => {
+        if (user && accessToken) {
+            fetchCourses();
+            fetchDrivingCourses();
+            fetchMyRegistrations();
+            fetchMyDrivingApplications();
+        }
+    }, [user, accessToken]);
 
     const handleRegisterForCourse = async (registrationData) => {
         setIsRegistering(true);
         try {
             const result = await api.registerForCourse(accessToken, registrationData);
-            if (result && result.id) {
-                alert(`Successfully registered for ${result.course_name}!`);
+            if (result?.id) {
                 fetchMyRegistrations();
-                handleCloseRegistrationModal();
-            } else {
-                alert(`Registration failed: ${result.detail || 'Unknown error'}`);
+                setSelectedCourseForRegistration(null);
+                alert('Course registration submitted successfully!');
+            } else if (result?.message) {
+                alert(result.message);
             }
-        } catch (error) {
-            console.error("Registration API Error:", error);
-            if (error.response && error.response.data && error.response.data.detail) {
-                alert(`Registration failed: ${JSON.stringify(error.response.data.detail)}`);
-            } else {
-                alert("Registration failed. Please try again.");
-            }
+        } catch (err) {
+            alert(`Registration Failed: ${err.message || 'Check console for details.'}`);
+            console.error("Register for Course API Error:", err);
         } finally {
             setIsRegistering(false);
         }
     };
 
-    const sidebarLinks = [
-        { name: 'All Courses', id: 'allCourses' },
-        { name: 'My Registrations', id: 'myRegistrations' },
-    ];
-
-    const renderContent = () => {
-        const hasCourses = Array.isArray(courses) && courses.length > 0;
-
-        switch (activeTab) {
-            case 'allCourses':
-                return (
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">All Available Courses</h2>
-                        {loading ? (
-                            <p className="text-center text-gray-500">Loading courses...</p>
-                        ) : hasCourses ? (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {courses.map(course => (
-                                    <CourseCard
-                                        key={course.course_id}
-                                        course={course}
-                                        onAction={() => handleRegisterClick(course)}
-                                        actionText="Register"
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="col-span-full text-center py-12">
-                                <div className="text-gray-400 text-6xl mb-4">📚</div>
-                                <p className="text-gray-600 text-lg">No courses available at the moment.</p>
-                            </div>
-                        )}
-                    </div>
-                );
-            case 'myRegistrations':
-                return (
-                    <div className="bg-white p-6 rounded-xl shadow-lg">
-                        <h2 className="text-2xl font-bold text-indigo-700 mb-6">My Course Registrations</h2>
-                        {loadingRegistrations ? (
-                            <p className="text-center text-gray-500">Loading registrations...</p>
-                        ) : myRegistrations.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Course Name
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Instructor
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Schedule
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Level
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Price
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Control No.
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {myRegistrations.map(reg => (
-                                            <tr key={reg.id}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {reg.course_name}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {reg.instructor_name}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {reg.selected_schedule}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {reg.selected_level}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    Tsh{reg.course_price}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                        reg.payment_status === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                            reg.payment_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {reg.payment_status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {reg.control_no || 'N/A'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <div className="text-gray-400 text-6xl mb-4">📝</div>
-                                <p className="text-gray-600 text-lg">You haven't registered for any courses yet.</p>
-                                <button
-                                    onClick={() => setActiveTab('allCourses')}
-                                    className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                                >
-                                    Browse Courses
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                );
-            default:
-                return null;
+    const handleApplyForDrivingCourse = async (applicationData) => {
+        setIsRegistering(true);
+        try {
+            const result = await api.applyForDrivingCourse(accessToken, applicationData);
+            if (result?.id) {
+                fetchMyDrivingApplications();
+                alert('Driving course application submitted successfully!');
+            } else {
+                alert('Application submitted, but received an unexpected response.');
+            }
+        } catch (err) {
+            alert(`Application Failed: ${err.message || 'Check console for details.'}`);
+            console.error("Driving Course Application Error:", err);
+        } finally {
+            setIsRegistering(false);
         }
     };
 
+    // Handler function for Certificate Request Submission
+    const handleSubmitCertificateRequest = async (formData, resetForm) => {
+        if (!certificateType) {
+            alert('Please select a certificate type first.');
+            return;
+        }
+
+        setIsSubmittingCert(true);
+        try {
+            if (certificateType === 'language') {
+                // Language certificate application
+                const applicationData = {
+                    ...formData,
+                    user_id: user.id.toString(),
+                    user_email: user.email,
+                    user_full_name: user.full_name,
+                };
+
+                const result = await api.submitCertificateApplication(accessToken, applicationData);
+
+                if (result?.id) {
+                    alert("Language certificate application submitted successfully! Check the 'Certificate Progress' tab for updates.");
+                    if (resetForm) resetForm();
+                    setCertificateType('');
+                } else {
+                    alert('Application submitted, but received an unexpected response.');
+                }
+            } else if (certificateType === 'driving') {
+                // Driving certificate request
+                // Find the completed driving application
+                const completedApplication = myDrivingApplications.find(app => 
+                    app.course_status === 'Completed' && !app.certificate_requested
+                );
+
+                if (!completedApplication) {
+                    alert('No completed driving course found or certificate already requested.');
+                    return;
+                }
+
+                const result = await api.requestDrivingCertificate(accessToken, completedApplication.id);
+                
+                if (result?.id) {
+                    alert("Driving certificate request submitted successfully! Check the 'Certificate Progress' tab for updates.");
+                    fetchMyDrivingApplications();
+                    if (resetForm) resetForm();
+                    setCertificateType('');
+                } else {
+                    alert('Certificate request submitted, but received an unexpected response.');
+                }
+            }
+        } catch (err) {
+            alert(`Application Submission Failed: ${err.message || 'Network error or server issue.'}`);
+            console.error("Certificate Application API Error:", err);
+        } finally {
+            setIsSubmittingCert(false);
+        }
+    };
+
+    const handleCertificateTypeChange = (type) => {
+        setCertificateType(type);
+    };
+
     return (
-        <div className="flex min-h-screen bg-gray-100">
-            <Sidebar links={sidebarLinks} activeTab={activeTab} setActiveTab={setActiveTab} />
-            <div className="flex-1 p-8">
-                <Header user={user} onLogout={onLogout} title="Student Dashboard" />
-                {renderContent()}
-            </div>
-            {showRegistrationModal && (
+        <Box display="flex" minHeight="100vh" bgcolor="grey.100">
+            <Sidebar
+                links={[
+                    { name: 'Available Courses', id: 'allCourses' },
+                    { name: 'My Registrations', id: 'myRegistrations' },
+                    { name: 'Request Certificate', id: 'certificateRequest' },
+                    { name: 'Certificate Progress', id: 'certificateProgress' },
+                    { name: 'Book Conference Room', id: 'conference-rooms' },
+                ]}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+            />
+
+            <Box flex={1} p={3}>
+                <Header user={user} onLogout={onLogout}/>
+
+                {activeTab === 'allCourses' && (
+                    <Box>
+                        <Typography variant="h5" fontWeight="bold" gutterBottom>
+                            All Available Courses
+                        </Typography>
+                        
+                        {/* Tabs for Regular vs Driving Courses */}
+                        <Tabs value={courseTab} onChange={(e, newValue) => setCourseTab(newValue)} sx={{ mb: 3 }}>
+                            <Tab label="Regular Courses" />
+                            <Tab label="Driving Courses" />
+                        </Tabs>
+
+                        {courseTab === 0 && (
+                            <>
+                                {loading ? (
+                                    <CircularProgress />
+                                ) : courses.length > 0 ? (
+                                    <Grid container spacing={2}>
+                                        {courses.map((c) => (
+                                            <Grid item xs={12} sm={6} md={4} key={c.course_id}>
+                                                <CourseCard
+                                                    course={c}
+                                                    onAction={() => setSelectedCourseForRegistration(c)}
+                                                    actionText="Register"
+                                                    courseType="regular"
+                                                />
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                ) : (
+                                    <Typography>No regular courses available.</Typography>
+                                )}
+                            </>
+                        )}
+
+                        {courseTab === 1 && (
+                            <>
+                                {loadingDrivingCourses ? (
+                                    <CircularProgress />
+                                ) : drivingCourses.length > 0 ? (
+                                    <Box>
+                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                            Apply for driving courses offered by the Engineering Department. 
+                                            Applications are approved quarterly by the Head of Department.
+                                        </Alert>
+                                        <Grid container spacing={2}>
+                                            {drivingCourses.map((course) => (
+                                                <Grid item xs={12} sm={6} md={4} key={course.id}>
+                                                    <CourseCard
+                                                        course={course}
+                                                        onAction={() => {
+                                                            // For driving courses, show the driving application form
+                                                            setSelectedCourseForRegistration(course);
+                                                        }}
+                                                        actionText="Apply Now"
+                                                        courseType="driving"
+                                                    />
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+                                    </Box>
+                                ) : (
+                                    <Typography>No driving courses available at the moment.</Typography>
+                                )}
+                            </>
+                        )}
+                    </Box>
+                )}
+
+                {activeTab === 'myRegistrations' && (
+                    <Paper sx={{ p: 3 }}>
+                        <Typography variant="h5" color="primary" gutterBottom>
+                            My Course Registrations & Applications
+                        </Typography>
+                        
+                        <Tabs value={courseTab} onChange={(e, newValue) => setCourseTab(newValue)} sx={{ mb: 3 }}>
+                            <Tab label="Regular Courses" />
+                            <Tab label="Driving Applications" />
+                        </Tabs>
+
+                        {courseTab === 0 && (
+                            <>
+                                {loadingRegistrations ? (
+                                    <CircularProgress />
+                                ) : myRegistrations.length > 0 ? (
+                                    <TableContainer>
+                                        <Table>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Course Name</TableCell>
+                                                    <TableCell>Instructor</TableCell>
+                                                    <TableCell>Schedule</TableCell>
+                                                    <TableCell>Level</TableCell>
+                                                    <TableCell>Price</TableCell>
+                                                    <TableCell>Status</TableCell>
+                                                    <TableCell>Control No.</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {myRegistrations.map((reg) => (
+                                                    <TableRow key={reg.id}>
+                                                        <TableCell>{reg.course_name}</TableCell>
+                                                        <TableCell>{reg.instructor_name}</TableCell>
+                                                        <TableCell>{reg.selected_schedule}</TableCell>
+                                                        <TableCell>{reg.selected_level}</TableCell>
+                                                        <TableCell>Tsh{reg.course_price}</TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={reg.payment_status}
+                                                                color={
+                                                                    reg.payment_status === 'Paid'
+                                                                        ? 'success'
+                                                                        : reg.payment_status === 'Pending'
+                                                                        ? 'warning'
+                                                                        : 'error'
+                                                                }
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>{reg.control_no || 'N/A'}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                ) : (
+                                    <Typography>No regular course registrations yet.</Typography>
+                                )}
+                            </>
+                        )}
+
+                        {courseTab === 1 && (
+                            <>
+                                {myDrivingApplications.length > 0 ? (
+                                    <TableContainer>
+                                        <Table>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Course Name</TableCell>
+                                                    <TableCell>Course Type</TableCell>
+                                                    <TableCell>Application Date</TableCell>
+                                                    <TableCell>Status</TableCell>
+                                                    <TableCell>Control No.</TableCell>
+                                                    <TableCell>Certificate Status</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {myDrivingApplications.map((app) => (
+                                                    <TableRow key={app.id}>
+                                                        <TableCell>{app.course_name}</TableCell>
+                                                        <TableCell>{app.course_type}</TableCell>
+                                                        <TableCell>{new Date(app.application_date).toLocaleDateString()}</TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={app.course_status || 'Pending'}
+                                                                color={
+                                                                    app.course_status === 'Approved'
+                                                                        ? 'success'
+                                                                        : app.course_status === 'Completed'
+                                                                        ? 'primary'
+                                                                        : app.course_status === 'In Progress'
+                                                                        ? 'info'
+                                                                        : 'warning'
+                                                                }
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>{app.control_number || 'N/A'}</TableCell>
+                                                        <TableCell>
+                                                            {app.certificate_issued ? (
+                                                                <Chip label="Issued" color="success" size="small" />
+                                                            ) : app.certificate_requested ? (
+                                                                <Chip label="Pending" color="warning" size="small" />
+                                                            ) : (
+                                                                <Chip label="Not Requested" color="default" size="small" />
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                ) : (
+                                    <Typography>No driving course applications yet.</Typography>
+                                )}
+                            </>
+                        )}
+                    </Paper>
+                )}
+
+                {activeTab === 'conference-rooms' && (
+                    <Box>
+                        <Typography variant="h5" gutterBottom>
+                            Conference Room Booking
+                        </Typography>
+                        <BookConferenceRoom accessToken={accessToken} />
+                    </Box>
+                )}
+                
+                {activeTab === 'certificateRequest' && (
+                    <Box>
+                        <Typography variant="h5" gutterBottom>
+                            Request Certificate
+                        </Typography>
+                        
+                        <CertificateTypeSelector onCertificateTypeChange={handleCertificateTypeChange} />
+                        
+                        {certificateType === 'language' && (
+                            <CertificateRequestForm 
+                                user={user} 
+                                accessToken={accessToken} 
+                                onSubmit={handleSubmitCertificateRequest} 
+                                isSubmitting={isSubmittingCert} 
+                            />
+                        )}
+                        
+                        {certificateType === 'driving' && (
+                            <Box>
+                                <Alert severity="info" sx={{ mb: 3 }}>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        Driving Course Certificate Request
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        You can request a driving certificate only after completing a driving course. 
+                                        The certificate costs Tsh 20,000 and requires administrative approval.
+                                    </Typography>
+                                </Alert>
+                                
+                                {myDrivingApplications.filter(app => app.course_status === 'Completed').length > 0 ? (
+                                    <Box>
+                                        <Typography variant="h6" gutterBottom>
+                                            Completed Driving Courses
+                                        </Typography>
+                                        <TableContainer component={Paper} sx={{ mb: 3 }}>
+                                            <Table>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>Course</TableCell>
+                                                        <TableCell>Type</TableCell>
+                                                        <TableCell>Completion Date</TableCell>
+                                                        <TableCell>Certificate Status</TableCell>
+                                                        <TableCell>Action</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {myDrivingApplications
+                                                        .filter(app => app.course_status === 'Completed')
+                                                        .map((app) => (
+                                                            <TableRow key={app.id}>
+                                                                <TableCell>{app.course_name}</TableCell>
+                                                                <TableCell>{app.course_type}</TableCell>
+                                                                <TableCell>
+                                                                    {app.completion_date ? 
+                                                                        new Date(app.completion_date).toLocaleDateString() : 
+                                                                        'N/A'
+                                                                    }
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {app.certificate_issued ? (
+                                                                        <Chip label="Issued" color="success" />
+                                                                    ) : app.certificate_requested ? (
+                                                                        <Chip label="Pending Approval" color="warning" />
+                                                                    ) : (
+                                                                        <Chip label="Not Requested" color="default" />
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {!app.certificate_requested && !app.certificate_issued && (
+                                                                        <Button
+                                                                            variant="contained"
+                                                                            color="primary"
+                                                                            onClick={() => handleSubmitCertificateRequest({}, null)}
+                                                                            disabled={isSubmittingCert}
+                                                                        >
+                                                                            {isSubmittingCert ? 'Requesting...' : 'Request Certificate'}
+                                                                        </Button>
+                                                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </Box>
+                                ) : (
+                                    <Alert severity="warning">
+                                        You don't have any completed driving courses yet. Complete a driving course first to request a certificate.
+                                    </Alert>
+                                )}
+                            </Box>
+                        )}
+                        
+                        {!certificateType && (
+                            <Alert severity="info">
+                                Please select a certificate type from the dropdown above to proceed.
+                            </Alert>
+                        )}
+                    </Box>
+                )}
+
+                {activeTab === 'certificateProgress' && (
+                    <StudentCertificateProgress 
+                        accessToken={accessToken} 
+                        user={user} 
+                    />
+                )}
+            </Box>
+
+            {/* Regular Course Registration Modal */}
+            {selectedCourseForRegistration && courseTab === 0 && (
                 <CourseRegistrationModal
                     course={selectedCourseForRegistration}
                     user={user}
-                    onClose={handleCloseRegistrationModal}
+                    onClose={() => setSelectedCourseForRegistration(null)}
                     onRegister={handleRegisterForCourse}
                     isLoading={isRegistering}
                 />
             )}
-        </div>
+
+            {/* Driving Course Application Modal */}
+            {selectedCourseForRegistration && courseTab === 1 && (
+                <Dialog open={!!selectedCourseForRegistration} onClose={() => setSelectedCourseForRegistration(null)} maxWidth="md" fullWidth>
+                    <DialogTitle>Apply for Driving Course</DialogTitle>
+                    <DialogContent>
+                        <DrivingApplicationForm 
+                            courses={[selectedCourseForRegistration]}
+                            onApply={(applicationData) => {
+                                handleApplyForDrivingCourse(applicationData);
+                                setSelectedCourseForRegistration(null);
+                            }}
+                            loading={isRegistering}
+                            currentUser={user}
+                        />
+                    </DialogContent>
+                </Dialog>
+            )}
+        </Box>
     );
 };
 

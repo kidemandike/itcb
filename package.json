@@ -1,29 +1,45 @@
 {
+  "$schema": "http://json.schemastore.org/package",
   "name": "sua-itcb",
   "version": "1.0.0",
-  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
-  "main": "postcss.config.js",
+  "description": "SUA ITCB Training Center Management System",
+  "main": "index.js",
   "scripts": {
-    "start": "react-scripts start",
+    "start": "cross-env HOST=0.0.0.0 PORT=3000 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "start-local": "react-scripts start"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kidemandike/kide.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "sua",
+    "itcb",
+    "training",
+    "management",
+    "react"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/kidemandike/kide/issues"
   },
-  "homepage": "https://github.com/kidemandike/kide#readme",
+  "homepage": ".",
   "dependencies": {
-    "jspdf": "^3.0.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
+    "date-fns": "^4.1.0",
+    "jspdf": "^3.0.3",
+    "lucide-react": "^0.546.0",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1",
     "react-scripts": "^5.0.1"
   },
   "browserslist": {
@@ -37,5 +53,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "proxy": "http://127.0.0.1:8000",
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }
