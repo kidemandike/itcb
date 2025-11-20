@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
 import { InputField } from '../UIComponents';
-import { Plus, X, Loader2 } from 'lucide-react'; // Import icons for better UX
+import { Plus, X, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const AdminConferenceRooms = ({ accessToken }) => {
     const [bookings, setBookings] = useState([]);
@@ -19,6 +19,7 @@ const AdminConferenceRooms = ({ accessToken }) => {
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const [showAllData, setShowAllData] = useState(false);
     
     // Booking Management State
     const [controlNoInputs, setControlNoInputs] = useState({});
@@ -89,7 +90,6 @@ const AdminConferenceRooms = ({ accessToken }) => {
                 capacity: parseInt(capacity),
                 location,
                 price_per_day: parseInt(pricePerDay),
-                // Amenities are stored as an array of strings, which is correct.
                 amenities: selectedAmenities, 
             };
             
@@ -191,10 +191,24 @@ const AdminConferenceRooms = ({ accessToken }) => {
     return (
         <div className="space-y-8 p-4 md:p-8 bg-gray-50 min-h-screen">
 
-            {/* Create Room Toggle + Form */}
+            {/* Header with Toggle Button */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                <div className="flex justify-between items-center mb-4 border-b pb-3">
-                    <h3 className="text-2xl font-bold text-indigo-700">Room Management</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-3xl font-bold text-indigo-700">Conference Room Management</h2>
+                    <button
+                        onClick={() => setShowAllData(!showAllData)}
+                        className={`flex items-center gap-2 py-3 px-6 rounded-full text-white font-medium transition ${
+                            showAllData ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'
+                        }`}
+                    >
+                        {showAllData ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />} 
+                        {showAllData ? 'Hide All Data' : 'Show All Data'}
+                    </button>
+                </div>
+                
+                {/* Create Room Toggle */}
+                <div className="flex justify-between items-center border-t pt-4">
+                    <h3 className="text-xl font-bold text-gray-700">Room Management</h3>
                     <button
                         onClick={() => setShowForm(!showForm)}
                         className={`flex items-center gap-2 py-2 px-4 rounded-full text-white font-medium transition ${
@@ -205,9 +219,12 @@ const AdminConferenceRooms = ({ accessToken }) => {
                         {showForm ? 'Close Form' : 'Add New Room'}
                     </button>
                 </div>
+            </div>
 
-                {showForm && (
-                    <form onSubmit={handleCreateRoom} className="space-y-6 mt-4">
+            {/* Create Room Form - Hidden by default */}
+            {showForm && (
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <form onSubmit={handleCreateRoom} className="space-y-6">
                         
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                             
@@ -250,7 +267,7 @@ const AdminConferenceRooms = ({ accessToken }) => {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                **Select Amenities**
+                                Select Amenities
                             </label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border">
                                 {availableAmenities.map(amenity => (
@@ -279,153 +296,153 @@ const AdminConferenceRooms = ({ accessToken }) => {
                             {actionLoading ? 'Creating Room...' : 'Create Room'}
                         </button>
                     </form>
-                )}
-            </div>
+                </div>
+            )}
 
-            ---
-
-            {/* Rooms List */}
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Available Conference Rooms ({rooms.length})</h3>
-                {loading ? (
-                    <p className="text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4"/> Loading rooms...</p>
-                ) : rooms.length === 0 ? (
-                    <p className="text-gray-500">No rooms available. Please add one using the form above.</p>
-                ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {rooms.map(room => (
-                            <div key={room.id} className="border border-indigo-200 rounded-lg p-5 bg-indigo-50 hover:shadow-md transition">
-                                <h4 className="font-extrabold text-xl text-indigo-800 mb-2">{room.name}</h4>
-                                <div className="space-y-1 text-sm">
-                                    <p className="text-gray-700">**Capacity:** {room.capacity} people</p>
-                                    <p className="text-gray-700">**Location:** {room.location}</p>
-                                    <p className="text-green-600 font-bold">**Rate:** Tsh {room.price_per_day?.toLocaleString()}/day</p>
-                                </div>
-                                
-                                <div className="mt-3 pt-3 border-t border-indigo-100">
-                                    <p className="text-xs font-semibold text-indigo-600 mb-1">Amenities:</p>
-                                    <p className="text-sm text-gray-600 leading-tight">
-                                        {/* This is the key display part */}
-                                        {formatAmenities(room.amenities)}
-                                    </p>
-                                </div>
+            {/* All Data Sections - Hidden by default, shown when button clicked */}
+            {showAllData && (
+                <>
+                    {/* Rooms List */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6">Available Conference Rooms ({rooms.length})</h3>
+                        {loading ? (
+                            <p className="text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4"/> Loading rooms...</p>
+                        ) : rooms.length === 0 ? (
+                            <p className="text-gray-500">No rooms available. Please add one using the form above.</p>
+                        ) : (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {rooms.map(room => (
+                                    <div key={room.id} className="border border-indigo-200 rounded-lg p-5 bg-indigo-50 hover:shadow-md transition">
+                                        <h4 className="font-extrabold text-xl text-indigo-800 mb-2">{room.name}</h4>
+                                        <div className="space-y-1 text-sm">
+                                            <p className="text-gray-700">Capacity: {room.capacity} people</p>
+                                            <p className="text-gray-700">Location: {room.location}</p>
+                                            <p className="text-green-600 font-bold">Rate: Tsh {room.price_per_day?.toLocaleString()}/day</p>
+                                        </div>
+                                        
+                                        <div className="mt-3 pt-3 border-t border-indigo-100">
+                                            <p className="text-xs font-semibold text-indigo-600 mb-1">Amenities:</p>
+                                            <p className="text-sm text-gray-600 leading-tight">
+                                                {formatAmenities(room.amenities)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
-                )}
-            </div>
 
-            ---
-
-            {/* Booking Approval Table (Rest of the component remains largely the same) */}
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">All Booking Requests ({bookings.length})</h3>
-                {loading ? (
-                    <p className="text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4"/> Loading bookings...</p>
-                ) : bookings.length === 0 ? (
-                    <p className="text-gray-500">No booking requests found.</p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-100">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Control No</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {Array.isArray(bookings) && bookings.map(booking => {
-                                    const startTime = new Date(booking.start_time);
-                                    const endTime = new Date(booking.end_time);
-                                    const durationDays = Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24));
-                                    const currentInputValue = controlNoInputs[booking.id] ?? (booking.control_no || '');
-                                    const isApprovedOrCompleted = booking.status === 'approved' || booking.status === 'completed';
-                                    const isModified = currentInputValue !== (booking.control_no || '');
-                                    
-                                    return (
-                                        <tr key={booking.id} className="hover:bg-gray-50 transition">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getUserName(booking.user_id)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getRoomName(booking.room_id)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.title}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                                                {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{durationDays} day{durationDays !== 1 ? 's' : ''}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">Tsh {booking.total_price?.toLocaleString()}</td>
-                                            
-                                            {/* CONTROL NO. CELL with Input and Save Button */}
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                {isApprovedOrCompleted ? (
-                                                    <div className="flex flex-col space-y-1">
-                                                        <input
-                                                            type="text"
-                                                            value={currentInputValue} 
-                                                            placeholder="Enter Control No."
-                                                            className="border border-gray-300 rounded-md p-1 text-xs w-28"
-                                                            onChange={(e) => handleControlNoChange(booking.id, e.target.value)} 
-                                                            disabled={actionLoading}
-                                                        />
-                                                        <button
-                                                            onClick={() => handleSaveControlNo(booking.id)} 
-                                                            className={`text-white rounded-md p-1 text-xs ${
-                                                                isModified && currentInputValue.trim() 
-                                                                    ? 'bg-indigo-500 hover:bg-indigo-600'
-                                                                    : 'bg-gray-400 cursor-not-allowed'
-                                                            }`}
-                                                            disabled={actionLoading || !isModified || !currentInputValue.trim()}
-                                                        >
-                                                            {actionLoading ? <Loader2 className="w-3 h-3 inline animate-spin" /> : 'Save'}
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-400">N/A</span>
-                                                )}
-                                            </td>
-                                            
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                            booking.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-red-100 text-red-800'
-                                                        }`}>
-                                                    {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                {booking.status === 'pending' && (
-                                                    <div className="flex space-x-2">
-                                                        <button
-                                                            onClick={() => handleUpdateStatus(booking.id, 'approved')}
-                                                            className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded transition disabled:bg-gray-400"
-                                                            disabled={actionLoading}
-                                                        >
-                                                            Approve
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleUpdateStatus(booking.id, 'rejected')}
-                                                            className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded transition disabled:bg-gray-400"
-                                                            disabled={actionLoading}
-                                                        >
-                                                            Reject
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
+                    {/* Booking Approval Table */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-4">All Booking Requests ({bookings.length})</h3>
+                        {loading ? (
+                            <p className="text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4"/> Loading bookings...</p>
+                        ) : bookings.length === 0 ? (
+                            <p className="text-gray-500">No booking requests found.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Control No</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {Array.isArray(bookings) && bookings.map(booking => {
+                                            const startTime = new Date(booking.start_time);
+                                            const endTime = new Date(booking.end_time);
+                                            const durationDays = Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24));
+                                            const currentInputValue = controlNoInputs[booking.id] ?? (booking.control_no || '');
+                                            const isApprovedOrCompleted = booking.status === 'approved' || booking.status === 'completed';
+                                            const isModified = currentInputValue !== (booking.control_no || '');
+                                            
+                                            return (
+                                                <tr key={booking.id} className="hover:bg-gray-50 transition">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getUserName(booking.user_id)}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{getRoomName(booking.room_id)}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.title}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                                        {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{durationDays} day{durationDays !== 1 ? 's' : ''}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">Tsh {booking.total_price?.toLocaleString()}</td>
+                                                    
+                                                    {/* CONTROL NO. CELL with Input and Save Button */}
+                                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                                        {isApprovedOrCompleted ? (
+                                                            <div className="flex flex-col space-y-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={currentInputValue} 
+                                                                    placeholder="Enter Control No."
+                                                                    className="border border-gray-300 rounded-md p-1 text-xs w-28"
+                                                                    onChange={(e) => handleControlNoChange(booking.id, e.target.value)} 
+                                                                    disabled={actionLoading}
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleSaveControlNo(booking.id)} 
+                                                                    className={`text-white rounded-md p-1 text-xs ${
+                                                                        isModified && currentInputValue.trim() 
+                                                                            ? 'bg-indigo-500 hover:bg-indigo-600'
+                                                                            : 'bg-gray-400 cursor-not-allowed'
+                                                                    }`}
+                                                                    disabled={actionLoading || !isModified || !currentInputValue.trim()}
+                                                                >
+                                                                    {actionLoading ? <Loader2 className="w-3 h-3 inline animate-spin" /> : 'Save'}
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400">N/A</span>
+                                                        )}
+                                                    </td>
+                                                    
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                                    booking.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                    'bg-red-100 text-red-800'
+                                                                }`}>
+                                                            {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        {booking.status === 'pending' && (
+                                                            <div className="flex space-x-2">
+                                                                <button
+                                                                    onClick={() => handleUpdateStatus(booking.id, 'approved')}
+                                                                    className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded transition disabled:bg-gray-400"
+                                                                    disabled={actionLoading}
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleUpdateStatus(booking.id, 'rejected')}
+                                                                    className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded transition disabled:bg-gray-400"
+                                                                    disabled={actionLoading}
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            )}
         </div>
     );
 };
